@@ -26,8 +26,16 @@ func NewMessagePipeline() *Pipeline {
 		EncryptionInterceptor,
 		EscrowInterceptor,
 		PersistenceInterceptor,
+		BroadcastInterceptor,
 	)
 }
+
+// RealTimeProvider is an interface for broadcasting messages
+type RealTimeProvider interface {
+	BroadcastToTenant(ctx context.Context, tenantID string, payload interface{}) error
+}
+
+var GlobalRTProvider RealTimeProvider
 
 // Interceptor implementations (Stubs for now)
 
@@ -48,6 +56,14 @@ func EscrowInterceptor(ctx context.Context, msg *Message) error {
 func PersistenceInterceptor(ctx context.Context, msg *Message) error {
 	// TODO: Final DB write logic if not handled by handler
 	return nil
+}
+
+func BroadcastInterceptor(ctx context.Context, msg *Message) error {
+	tc, ok := GetTenantContext(ctx)
+	if !ok || GlobalRTProvider == nil {
+		return nil
+	}
+	return GlobalRTProvider.BroadcastToTenant(ctx, tc.TenantID, msg)
 }
 
 func (p *Pipeline) Execute(ctx context.Context, msg *Message) error {

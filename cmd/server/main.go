@@ -52,6 +52,15 @@ func main() {
 	}
 	moduleRegistry := modules.NewRegistry(modulesList)
 
+	// Real-time Manager
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
+	rtManager := kernel.NewRTManager(redisURL)
+	kernel.GlobalRTProvider = rtManager
+	go rtManager.SubscribeToTenants(context.Background())
+
 	// Messaging Pipeline
 	msgPipeline := kernel.NewMessagePipeline()
 
@@ -63,6 +72,30 @@ func main() {
 	// Protected Routes
 	r.Group(func(r chi.Router) {
 		r.Use(kernel.AuthMiddleware(jwtSecret, tenantManager, moduleRegistry))
+
+		r.Get("/ws", rtManager.HandleWS)
+
+		r.Post("/messages", func(w http.ResponseWriter, r *http.Request) {
+			tc, ok := kernel.GetTenantContext(r.Context())
+			if !ok {
+				http.Error(w, "Tenant context missing", http.StatusInternalServerError)
+				return
+			}
+
+			// In a real app, parse from JSON body
+			msg := &kernel.Message{
+				ID:      "msg-" + time.Now().String(),
+				Content: r.URL.Query().Get("content"),
+			}
+
+			if err := msgPipeline.Execute(r.Context(), msg); err != nil {
+				http.Error(w, "Failed to process message", http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprintf(w, "Message sent to tenant: %s", tc.TenantID)
+		})
 
 		r.Get("/messages", func(w http.ResponseWriter, r *http.Request) {
 			tc, ok := kernel.GetTenantContext(r.Context())
