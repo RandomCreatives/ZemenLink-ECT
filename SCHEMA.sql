@@ -63,11 +63,15 @@ CREATE TABLE messages (
 
 -- Separate table for encrypted symmetric keys to allow multiple recipients + escrow
 CREATE TABLE message_keys (
-    message_id UUID REFERENCES messages(id) ON DELETE CASCADE,
-    recipient_id UUID, -- NULL for corporate escrow key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    recipient_id UUID, -- User ID for standard recipient, NULL for corporate escrow key
     key_encrypted TEXT NOT NULL, -- The symmetric key, encrypted with the recipient's/escrow's public key
     is_escrow BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (message_id, recipient_id, is_escrow)
+    -- Ensure only one escrow key per message
+    CONSTRAINT unique_message_escrow UNIQUE (message_id, is_escrow) WHERE (is_escrow = TRUE),
+    -- Ensure one key per recipient per message
+    CONSTRAINT unique_message_recipient UNIQUE (message_id, recipient_id) WHERE (is_escrow = FALSE)
 );
 
 CREATE INDEX idx_messages_chat_id ON messages(chat_id);
