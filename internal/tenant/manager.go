@@ -11,23 +11,39 @@ import (
 
 // Tenant represents a client organization
 type Tenant struct {
-	ID               string `db:"id"`
+	ID                 string `db:"id"`
 	DBConnectionString string `db:"db_connection_string"`
-	ComplianceLevel   string `db:"compliance_level"` // e.g., "high", "standard"
+	ComplianceLevel    string `db:"compliance_level"` // e.g., "high", "standard"
+}
+
+func (t Tenant) GetCompliance() string {
+	return t.ComplianceLevel
 }
 
 // Manager handles connections to tenant-specific databases
 type Manager struct {
 	globalDB *sqlx.DB
+	kms      KMSClient
 	conns    map[string]*sqlx.DB
 	mu       sync.RWMutex
 }
 
-func NewManager(globalDB *sqlx.DB) *Manager {
+func NewManager(globalDB *sqlx.DB, kms KMSClient) *Manager {
 	return &Manager{
 		globalDB: globalDB,
+		kms:      kms,
 		conns:    make(map[string]*sqlx.DB),
 	}
+}
+
+// GetTenant returns the tenant record from the global DB
+func (m *Manager) GetTenant(ctx context.Context, tenantID string) (interface{}, error) {
+	var tenant Tenant
+	err := m.globalDB.GetContext(ctx, &tenant, "SELECT id, db_connection_string, compliance_level FROM tenants WHERE id = $1", tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tenant: %w", err)
+	}
+	return tenant, nil
 }
 
 // GetDB returns a database connection for the given tenant ID
@@ -75,7 +91,8 @@ func (m *Manager) GetDB(ctx context.Context, tenantID string) (*sqlx.DB, error) 
 }
 
 func (m *Manager) decryptConnectionString(encrypted string) (string, error) {
-	// TODO: Integrate with KMS (e.g. AWS KMS, HashiCorp Vault)
-	// For now, returning as-is for the PoC
-	return encrypted, nil
+	if m.kms == nil {
+		return encrypted, nil // Fallback for unencrypted environments
+	}
+	return m.kms.Decrypt(encrypted)
 }

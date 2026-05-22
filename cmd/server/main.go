@@ -1,17 +1,25 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jmoiron/sqlx"
+	"zemenlink/internal/kernel"
+	"zemenlink/internal/modules"
 	"zemenlink/internal/tenant"
 )
 
 func main() {
-	// Initialize Global DB
+	// 1. Setup Dependencies
 	globalDBConn := os.Getenv("GLOBAL_DB_URL")
 	if globalDBConn == "" {
 		globalDBConn = "host=localhost user=postgres password=password dbname=zemenlink_global sslmode=disable"
@@ -22,33 +30,85 @@ func main() {
 		log.Fatalln("Failed to connect to global DB:", err)
 	}
 
-	tenantManager := tenant.NewManager(globalDB)
-
-	http.HandleFunc("/messages", func(w http.ResponseWriter, r *http.Request) {
-		// 1. Extract Tenant ID from Context (previously set by Auth Middleware)
-		tenantID := r.Header.Get("X-Tenant-ID")
-		if tenantID == "" {
-			http.Error(w, "Tenant ID required", http.StatusUnauthorized)
-			return
-		}
-
-		// 2. Get the specific DB connection for this tenant
-		db, err := tenantManager.GetDB(r.Context(), tenantID)
+	masterKey := os.Getenv("MASTER_KEY")
+	var kms tenant.KMSClient
+	if masterKey != "" {
+		kms, err = tenant.NewSymmetricKMS(masterKey)
 		if err != nil {
-			http.Error(w, "Failed to connect to tenant database", http.StatusInternalServerError)
-			return
+			log.Fatalln("Failed to initialize KMS:", err)
 		}
+	}
 
-		// 3. Perform operations on the tenant database (Example)
-		var count int
-		err = db.Get(&count, "SELECT count(*) FROM messages")
-		if err != nil {
-			// In a real app, we'd handle this more gracefully
-		}
+	tenantManager := tenant.NewManager(globalDB, kms)
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		jwtSecret = []byte("default-secret-change-me")
+	}
 
-		fmt.Fprintf(w, "Connected to database for tenant: %s. Message count: %d", tenantID, count)
+	// Load Modules
+	modulesList, err := modules.LoadModules("./internal/modules")
+	if err != nil {
+		log.Println("Warning: Failed to load modules:", err)
+	}
+	moduleRegistry := modules.NewRegistry(modulesList)
+
+	// Messaging Pipeline
+	msgPipeline := kernel.NewMessagePipeline()
+
+	// 2. Setup Router
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Protected Routes
+	r.Group(func(r chi.Router) {
+		r.Use(kernel.AuthMiddleware(jwtSecret, tenantManager, moduleRegistry))
+
+		r.Get("/messages", func(w http.ResponseWriter, r *http.Request) {
+			tc, ok := kernel.GetTenantContext(r.Context())
+			if !ok {
+				http.Error(w, "Tenant context missing", http.StatusInternalServerError)
+				return
+			}
+
+			// Example: Processing a message through the pipeline
+			msg := &kernel.Message{Content: "Sample Enterprise Message"}
+			if err := msgPipeline.Execute(r.Context(), msg); err != nil {
+				http.Error(w, "Pipeline execution failed", http.StatusInternalServerError)
+				return
+			}
+
+			var count int
+			_ = tc.DB.Get(&count, "SELECT count(*) FROM messages") // Ignoring error for PoC
+			fmt.Fprintf(w, "Tenant: %s. Compliance: %s. Modules: %v. Count: %d", tc.TenantID, tc.ComplianceLevel, tc.FeatureFlags, count)
+		})
 	})
 
-	log.Println("ZemenLink Backend starting on :8080...")
-	// log.Fatal(http.ListenAndServe(":8080", nil))
+	// 3. Server Lifecycle
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
+
+	// Graceful shutdown channel
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Println("ZemenLink Backend starting on :8080...")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	<-done
+	log.Println("Server stopping...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server Shutdown Failed:%+v", err)
+	}
+	log.Println("Server exited properly")
 }

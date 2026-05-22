@@ -20,6 +20,36 @@ func NewPipeline(interceptors ...Interceptor) *Pipeline {
 	return &Pipeline{interceptors: interceptors}
 }
 
+// NewMessagePipeline is a factory for the standard messaging interceptors
+func NewMessagePipeline() *Pipeline {
+	return NewPipeline(
+		EncryptionInterceptor,
+		EscrowInterceptor,
+		PersistenceInterceptor,
+	)
+}
+
+// Interceptor implementations (Stubs for now)
+
+func EncryptionInterceptor(ctx context.Context, msg *Message) error {
+	// TODO: Signal Protocol implementation
+	return nil
+}
+
+func EscrowInterceptor(ctx context.Context, msg *Message) error {
+	tc, ok := GetTenantContext(ctx)
+	if !ok || !tc.FeatureFlags["escrow"] {
+		return nil
+	}
+	// TODO: Multi-encrypt symmetric key for escrow
+	return nil
+}
+
+func PersistenceInterceptor(ctx context.Context, msg *Message) error {
+	// TODO: Final DB write logic if not handled by handler
+	return nil
+}
+
 func (p *Pipeline) Execute(ctx context.Context, msg *Message) error {
 	for _, interceptor := range p.interceptors {
 		if err := interceptor(ctx, msg); err != nil {
