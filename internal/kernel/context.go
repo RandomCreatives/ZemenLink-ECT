@@ -7,6 +7,7 @@ import (
 
 type TenantContext struct {
 	TenantID        string
+	UserID          string
 	DB              *sqlx.DB
 	FeatureFlags    map[string]bool
 	ComplianceLevel string

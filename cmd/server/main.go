@@ -13,6 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jmoiron/sqlx"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"zemenlink/internal/kernel"
 	"zemenlink/internal/modules"
 	"zemenlink/internal/tenant"
@@ -76,25 +79,45 @@ func main() {
 		r.Get("/ws", rtManager.HandleWS)
 
 		r.Post("/messages", func(w http.ResponseWriter, r *http.Request) {
-			tc, ok := kernel.GetTenantContext(r.Context())
+			_, ok := kernel.GetTenantContext(r.Context())
 			if !ok {
 				http.Error(w, "Tenant context missing", http.StatusInternalServerError)
 				return
 			}
 
-			// In a real app, parse from JSON body
+			var payload struct {
+				ChatID      string `json:"chat_id"`
+				Content     string `json:"content"`
+				ContentType string `json:"content_type"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				http.Error(w, "Invalid payload", http.StatusBadRequest)
+				return
+			}
+
+			// Generate a simple unique ID for the PoC
+			idBytes := make([]byte, 8)
+			rand.Read(idBytes)
+			msgID := fmt.Sprintf("msg-%d-%s", time.Now().Unix(), hex.EncodeToString(idBytes))
+
 			msg := &kernel.Message{
-				ID:      "msg-" + time.Now().String(),
-				Content: r.URL.Query().Get("content"),
+				ID:      msgID,
+				Content: payload.Content,
+				Metadata: map[string]interface{}{
+					"chat_id":      payload.ChatID,
+					"content_type": payload.ContentType,
+				},
 			}
 
 			if err := msgPipeline.Execute(r.Context(), msg); err != nil {
+				log.Printf("Pipeline error: %v", err)
 				http.Error(w, "Failed to process message", http.StatusInternalServerError)
 				return
 			}
 
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprintf(w, "Message sent to tenant: %s", tc.TenantID)
+			json.NewEncoder(w).Encode(msg)
 		})
 
 		r.Get("/messages", func(w http.ResponseWriter, r *http.Request) {

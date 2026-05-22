@@ -72,10 +72,13 @@ func (m *RTManager) localBroadcast(tenantID string, payload interface{}) {
 		return
 	}
 
-	for _, conn := range userConns {
-		if err := conn.WriteJSON(payload); err != nil {
-			log.Printf("Error writing to websocket: %v", err)
-		}
+	for userID, conn := range userConns {
+		// Run in goroutine to prevent a slow consumer from blocking the broadcast
+		go func(uid string, c *websocket.Conn) {
+			if err := c.WriteJSON(payload); err != nil {
+				log.Printf("Error writing to websocket (user: %s): %v", uid, err)
+			}
+		}(userID, conn)
 	}
 }
 

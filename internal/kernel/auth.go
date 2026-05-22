@@ -55,6 +55,8 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				return
 			}
 
+			userID, _ := claims["user_id"].(string) // Optional for now, but good practice
+
 			// Resolve tenant-specific resources
 			db, err := resolver.GetDB(r.Context(), tenantID)
 			if err != nil {
@@ -78,6 +80,7 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 
 			tc := &TenantContext{
 				TenantID:        tenantID,
+				UserID:          userID,
 				DB:              db,
 				ComplianceLevel: compliance,
 				FeatureFlags:    features.GetFlagsForTenant(tenantID, compliance),
@@ -90,9 +93,10 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 }
 
 // GenerateTestToken is a helper for testing
-func GenerateTestToken(secret []byte, tenantID string) (string, error) {
+func GenerateTestToken(secret []byte, tenantID, userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"tenant_id": tenantID,
+		"user_id":   userID,
 	})
 	return token.SignedString(secret)
 }

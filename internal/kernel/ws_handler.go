@@ -20,8 +20,11 @@ func (m *RTManager) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a real app, we'd get the UserID from the JWT claims in the context
-	userID := r.URL.Query().Get("user_id")
+	userID := tc.UserID
+	if userID == "" {
+		// Fallback for transition/testing if needed, but in production this should be enforced
+		userID = r.URL.Query().Get("user_id")
+	}
 	if userID == "" {
 		http.Error(w, "user_id required", http.StatusBadRequest)
 		return

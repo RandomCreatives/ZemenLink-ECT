@@ -77,9 +77,9 @@ func (m *Manager) GetDB(ctx context.Context, tenantID string) (*sqlx.DB, error) 
 	}
 
 	// Initialize new connection
-	newDB, err := sqlx.Open("postgres", decryptedConn)
+	newDB, err := sqlx.ConnectContext(ctx, "postgres", decryptedConn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open tenant db: %w", err)
+		return nil, fmt.Errorf("failed to connect to tenant db: %w", err)
 	}
 
 	// Optional: Configure pooling
