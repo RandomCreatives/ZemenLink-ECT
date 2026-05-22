@@ -3,6 +3,7 @@ package compliance
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"zemenlink/internal/kernel"
 
 	"github.com/go-chi/chi/v5"
@@ -24,7 +25,7 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 func (h *Handlers) RoleGuard(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role, _ := r.Context().Value("user_role").(string)
+			role, _ := kernel.GetUserRole(r.Context())
 			for _, allowed := range allowedRoles {
 				if role == allowed {
 					next.ServeHTTP(w, r)
@@ -93,8 +94,18 @@ func (h *Handlers) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+
 	var logs []map[string]interface{}
-	err := tc.DB.SelectContext(r.Context(), &logs, "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100")
+	query := "SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT $1 OFFSET $2"
+	err := tc.DB.SelectContext(r.Context(), &logs, query, limit, offset)
 	if err != nil {
 		http.Error(w, "Failed to fetch audit logs", http.StatusInternalServerError)
 		return

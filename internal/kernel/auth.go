@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jmoiron/sqlx"
@@ -88,9 +89,8 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				FeatureFlags:    features.GetFlagsForTenant(tenantID, compliance),
 			}
 
-			// Add role to context if needed
-			ctx := context.WithValue(r.Context(), "user_role", role)
-
+			// Add role to context
+			ctx := WithUserRole(r.Context(), role)
 			ctx = WithTenantContext(ctx, tc)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -98,10 +98,12 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 }
 
 // GenerateTestToken is a helper for testing
-func GenerateTestToken(secret []byte, tenantID, userID string) (string, error) {
+func GenerateTestToken(secret []byte, tenantID, userID, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"tenant_id": tenantID,
 		"user_id":   userID,
+		"role":      role,
+		"exp":       time.Now().Add(time.Hour).Unix(),
 	})
 	return token.SignedString(secret)
 }

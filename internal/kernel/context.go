@@ -15,7 +15,10 @@ type TenantContext struct {
 
 type contextKey string
 
-const tenantContextKey contextKey = "tenantContext"
+const (
+	tenantContextKey contextKey = "tenantContext"
+	userRoleKey      contextKey = "userRole"
+)
 
 func WithTenantContext(ctx context.Context, tc *TenantContext) context.Context {
 	return context.WithValue(ctx, tenantContextKey, tc)
@@ -24,4 +27,13 @@ func WithTenantContext(ctx context.Context, tc *TenantContext) context.Context {
 func GetTenantContext(ctx context.Context) (*TenantContext, bool) {
 	tc, ok := ctx.Value(tenantContextKey).(*TenantContext)
 	return tc, ok
+}
+
+func WithUserRole(ctx context.Context, role string) context.Context {
+	return context.WithValue(ctx, userRoleKey, role)
+}
+
+func GetUserRole(ctx context.Context) (string, bool) {
+	role, ok := ctx.Value(userRoleKey).(string)
+	return role, ok
 }

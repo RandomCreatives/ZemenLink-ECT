@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 )
 
@@ -21,8 +23,22 @@ func NewEscrowCrypto(publicKeyPEM []byte) (*EscrowCrypto, error) {
 		return &EscrowCrypto{EscrowPublicKey: &priv.PublicKey}, nil
 	}
 
-	// Logic to decode PEM public key would go here
-	return &EscrowCrypto{}, nil
+	block, _ := pem.Decode(publicKeyPEM)
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("not an RSA public key")
+	}
+
+	return &EscrowCrypto{EscrowPublicKey: rsaPub}, nil
 }
 
 func (c *EscrowCrypto) EncryptForKeyEscrow(plaintextKey string) (string, error) {

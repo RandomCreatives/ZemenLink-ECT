@@ -18,7 +18,7 @@ func TestMessagingFlow(t *testing.T) {
 	tenantID := "tenant-123"
 
 	// 1. Generate Token
-	token, err := kernel.GenerateTestToken(jwtSecret, tenantID, "user-456")
+	token, err := kernel.GenerateTestToken(jwtSecret, tenantID, "user-456", "user")
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
 	}
