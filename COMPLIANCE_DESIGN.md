@@ -26,13 +26,20 @@ The Compliance Dashboard is a restricted UI available only to users with the `co
 - **Retention Policies:** Set per-tenant rules for how long messages are kept (e.g., "Delete after 7 years" or "Never delete").
 - **Escrow Access Management:** The interface to request and approve access to encrypted content.
 
-## 3. Escrow Access Flow (2-Person Approval)
-To prevent abuse, accessing escrowed keys requires a multi-stage approval process.
+## 3. Escrow Access Flow (The Event-Driven Gate)
+The "Two-Person Gate" is implemented as an event-driven workflow engine, ensuring that escrow access is never a static permission but a transient, multi-sig state.
 
-1. **Request:** A Compliance Officer (CO) creates an "Escrow Access Request" specifying the target (user/channel), the reason (e.g., "Internal Investigation #123"), and the duration of access.
-2. **Notification:** The system notifies the designated "Approvers" (e.g., Legal Counsel, CTO).
-3. **Approval:** At least two (2) authorized approvers must log into the dashboard and review the request details.
-4. **Grant:** Once the threshold is met, the system temporarily grants the CO access to a decryption service.
+### Workflow Stages:
+1. **Event: `EscrowKeyRequested`**
+    - A Compliance Officer (CO) initiates a request.
+    - System triggers the "Escrow Workflow Module."
+2. **State: `PendingApproval`**
+    - Notifications are dispatched to the `AdminGroup` (e.g., Legal Counsel, CTO) via ZemenLink's own system channels.
+    - The request is locked in a pending state with a fixed expiration (e.g., 24 hours).
+3. **Transition: `On(ApprovalCount >= 2)`**
+    - As approvers sign off, the workflow state is updated.
+    - Once the threshold is met, the system triggers the `ReleaseKey` event.
+4. **Grant:** The system temporarily grants the CO access to a decryption service.
 5. **Decryption:** The decryption service uses the `Private_Key_Escrow` (from KMS) to decrypt the symmetric keys for the requested messages.
 6. **Logging:** Every step—request, approval, and actual decryption/viewing—is recorded in the immutable `audit_logs` table.
 

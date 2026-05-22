@@ -1,7 +1,7 @@
 # ZemenLink High-Level System Architecture
 
-## 1. Overview
-ZemenLink is an enterprise-grade messaging platform designed to provide a "Telegram-like" user experience with the security and compliance required by large organizations. The system follows a modular monolith or microservices architecture depending on scale, with a strong focus on tenant isolation.
+## 1. Overview: The Modular Enterprise OS
+ZemenLink is more than a messaging platform; it is architected as a **Modular Enterprise OS**. This approach treats the core messaging functionality as a "Kernel" and builds specialized compliance and integration features as hot-swappable "Modules." This allows us to ship specialized "Compliance Packs" (e.g., Banking, Government, Regional) to different tenants without bloating the core codebase.
 
 ## 2. Tenant Silo Strategy: Database-per-Tenant
 To ensure absolute data isolation and comply with strict enterprise requirements, ZemenLink employs a **Database-per-Tenant** strategy.
@@ -57,11 +57,20 @@ graph TD
 - **Federated Identity:** ZemenLink acts as a Service Provider (SP). Integration with OIDC/SAML/Active Directory is the primary onboarding mechanism.
 - **Zero Standalone Login:** Authentication is delegated to the enterprise Identity Provider (IdP) (e.g., Okta, Azure AD).
 
-### Messaging Service (Backend)
+### Messaging Service (Backend) - The ZemenLink Kernel
 - **Language:** Golang (for high concurrency).
 - **Real-time:** WebSockets for message delivery and presence updates, backed by Redis for pub/sub and transient state.
-- **Storage:** Metadata and messages are stored in the tenant's dedicated PostgreSQL database.
-- **Attachments:** Files are stored in tenant-specific S3 buckets (or prefixed folders within a shared bucket, depending on compliance tier).
+- **Tenant Context Provider:** Every request is processed by a middleware that resolves the `TenantID` and injects a "Tenant Context" containing:
+    - Database Connection String
+    - Feature Flags (Manifest-based)
+    - Compliance Level (e.g., "On-Premise" vs "S3-Cloud")
+- **Manifest Pattern:** Every feature (Webhooks, Compliance, Regional Packs) is a module in `/internal/modules/`. A `manifest.json` defines which modules are active for which tenant.
+
+### Interceptor Pipeline
+Messages are processed through a series of "Interceptors" before persistence:
+1. **Encryption Interceptor:** Handles Signal Protocol (E2EE) handshakes.
+2. **Escrow Interceptor:** If the tenant manifest has `escrow: true`, this interceptor multi-encrypts the symmetric key for the corporate escrow.
+3. **Persistence Interceptor:** Routes the final payload to the correct tenant-siloed database.
 
 ### E2EE with Corporate Escrow
 - **Transport:** Signal Protocol for E2EE.

@@ -11,8 +11,9 @@ import (
 
 // Tenant represents a client organization
 type Tenant struct {
-	ID               string
-	DBConnectionString string
+	ID               string `db:"id"`
+	DBConnectionString string `db:"db_connection_string"`
+	ComplianceLevel   string `db:"compliance_level"` // e.g., "high", "standard"
 }
 
 // Manager handles connections to tenant-specific databases

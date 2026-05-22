@@ -1,6 +1,39 @@
 # ZemenLink System Diagrams
 
-## 1. High-Level Architecture (Topology)
+## 1. The ZemenLink Kernel & Modular Engine
+```mermaid
+graph TD
+    Client[ZemenLink Client]
+
+    subgraph "ZemenLink Kernel"
+        Router[Tenant Context Router]
+        Pipeline[Interceptor Pipeline]
+        ModLoader[Module Loader]
+    end
+
+    subgraph "Modular Interceptors"
+        I1[Encryption]
+        I2[Compliance/Escrow]
+        I3[Regional/Localisation]
+    end
+
+    subgraph "Tenant Data Silos"
+        DB_A[(DB Tenant A)]
+        DB_B[(DB Tenant B)]
+    end
+
+    Client --> Router
+    Router --> ModLoader
+    ModLoader --> Pipeline
+    Pipeline --> I1
+    Pipeline --> I2
+    Pipeline --> I3
+    I1 --> DB_A
+    I2 --> DB_A
+    I3 --> DB_B
+```
+
+## 2. High-Level Architecture (Topology)
 ```mermaid
 graph TD
     Client[ZemenLink Client Mobile/Desktop]

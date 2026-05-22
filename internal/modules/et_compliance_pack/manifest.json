@@ -1,0 +1,11 @@
+{
+  "name": "et_compliance_pack",
+  "version": "1.0.0",
+  "enabled": true,
+  "config": {
+    "data_sovereignty": "strict_ethiopia",
+    "local_languages": ["am", "om", "ti"],
+    "regulatory_reporting": "nbe_standard_v2"
+  },
+  "permissions": ["audit_logs_read", "compliance_export"]
+}
