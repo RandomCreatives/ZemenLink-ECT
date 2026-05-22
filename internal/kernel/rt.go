@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -55,12 +56,22 @@ func (m *RTManager) RemoveConn(tenantID, userID string) {
 
 // BroadcastToTenant publishes a message to a Redis channel for the tenant
 func (m *RTManager) BroadcastToTenant(ctx context.Context, tenantID string, payload interface{}) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal broadcast payload: %w", err)
+	}
+
 	if m.redisClient == nil {
 		// Fallback to local broadcast if Redis is missing
-		m.localBroadcast(tenantID, payload)
+		m.localBroadcast(tenantID, data)
 		return nil
 	}
-	return m.redisClient.Publish(ctx, "tenant:"+tenantID, payload).Err()
+	err = m.redisClient.Publish(ctx, "tenant:"+tenantID, data).Err()
+	if err != nil {
+		log.Printf("Redis publish error: %v. Falling back to local broadcast.", err)
+		m.localBroadcast(tenantID, data)
+	}
+	return err
 }
 
 func (m *RTManager) localBroadcast(tenantID string, payload interface{}) {
@@ -75,7 +86,13 @@ func (m *RTManager) localBroadcast(tenantID string, payload interface{}) {
 	for userID, conn := range userConns {
 		// Run in goroutine to prevent a slow consumer from blocking the broadcast
 		go func(uid string, c *websocket.Conn) {
-			if err := c.WriteJSON(payload); err != nil {
+			// payload is already JSON marshaled when coming from Redis or local trigger
+			payloadBytes, ok := payload.([]byte)
+			if !ok {
+				log.Printf("Error: broadcast payload is not []byte")
+				return
+			}
+			if err := c.WriteMessage(websocket.TextMessage, payloadBytes); err != nil {
 				log.Printf("Error writing to websocket (user: %s): %v", uid, err)
 			}
 		}(userID, conn)

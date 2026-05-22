@@ -22,11 +22,8 @@ func (m *RTManager) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	userID := tc.UserID
 	if userID == "" {
-		// Fallback for transition/testing if needed, but in production this should be enforced
-		userID = r.URL.Query().Get("user_id")
-	}
-	if userID == "" {
-		http.Error(w, "user_id required", http.StatusBadRequest)
+		// Strictly enforce identity from JWT context
+		http.Error(w, "Unauthorized: user_id missing from context", http.StatusUnauthorized)
 		return
 	}
 

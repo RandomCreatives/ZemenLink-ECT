@@ -13,9 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jmoiron/sqlx"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
+	"github.com/google/uuid"
+	"zemenlink/internal/compliance"
 	"zemenlink/internal/kernel"
 	"zemenlink/internal/modules"
 	"zemenlink/internal/tenant"
@@ -64,6 +64,14 @@ func main() {
 	kernel.GlobalRTProvider = rtManager
 	go rtManager.SubscribeToTenants(context.Background())
 
+	// Compliance Engine & Handlers
+	complianceEngine := &compliance.WorkflowEngine{}
+	complianceHandlers := &compliance.Handlers{Engine: complianceEngine}
+
+	// Crypto Services
+	escrowCrypto, _ := kernel.NewEscrowCrypto(nil) // nil for PoC fallback
+	kernel.GlobalEscrowCrypto = escrowCrypto
+
 	// Messaging Pipeline
 	msgPipeline := kernel.NewMessagePipeline()
 
@@ -86,23 +94,24 @@ func main() {
 			}
 
 			var payload struct {
-				ChatID      string `json:"chat_id"`
-				Content     string `json:"content"`
-				ContentType string `json:"content_type"`
+				ChatID       string `json:"chat_id"`
+				Content      string `json:"content"`
+				ContentType  string `json:"content_type"`
+				RecipientID  string `json:"recipient_id"`
+				EncryptedKey string `json:"encrypted_key"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				http.Error(w, "Invalid payload", http.StatusBadRequest)
 				return
 			}
 
-			// Generate a simple unique ID for the PoC
-			idBytes := make([]byte, 8)
-			rand.Read(idBytes)
-			msgID := fmt.Sprintf("msg-%d-%s", time.Now().Unix(), hex.EncodeToString(idBytes))
+			msgID := uuid.New().String()
 
 			msg := &kernel.Message{
-				ID:      msgID,
-				Content: payload.Content,
+				ID:           msgID,
+				Content:      payload.Content,
+				RecipientID:  payload.RecipientID,
+				EncryptedKey: payload.EncryptedKey,
 				Metadata: map[string]interface{}{
 					"chat_id":      payload.ChatID,
 					"content_type": payload.ContentType,
@@ -138,6 +147,9 @@ func main() {
 			_ = tc.DB.Get(&count, "SELECT count(*) FROM messages") // Ignoring error for PoC
 			fmt.Fprintf(w, "Tenant: %s. Compliance: %s. Modules: %v. Count: %d", tc.TenantID, tc.ComplianceLevel, tc.FeatureFlags, count)
 		})
+
+		// Compliance Routes
+		complianceHandlers.RegisterRoutes(r)
 	})
 
 	// 3. Server Lifecycle

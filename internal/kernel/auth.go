@@ -78,6 +78,8 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				compliance = t.GetCompliance()
 			}
 
+			role, _ := claims["role"].(string)
+
 			tc := &TenantContext{
 				TenantID:        tenantID,
 				UserID:          userID,
@@ -86,7 +88,10 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				FeatureFlags:    features.GetFlagsForTenant(tenantID, compliance),
 			}
 
-			ctx := WithTenantContext(r.Context(), tc)
+			// Add role to context if needed
+			ctx := context.WithValue(r.Context(), "user_role", role)
+
+			ctx = WithTenantContext(ctx, tc)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
