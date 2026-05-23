@@ -12,6 +12,7 @@ CREATE TABLE tenants (
     db_connection_string TEXT NOT NULL, -- Encrypted at rest
     s3_bucket_name VARCHAR(255) NOT NULL,
     compliance_level VARCHAR(50) DEFAULT 'standard', -- high, standard, etc.
+    escrow_public_key TEXT, -- RSA Public Key in PEM format
     oidc_config JSONB, -- SAML/OIDC provider details
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

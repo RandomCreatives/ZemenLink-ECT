@@ -14,10 +14,15 @@ type Tenant struct {
 	ID                 string `db:"id"`
 	DBConnectionString string `db:"db_connection_string"`
 	ComplianceLevel    string `db:"compliance_level"` // e.g., "high", "standard"
+	EscrowPublicKey    string `db:"escrow_public_key"`
 }
 
 func (t Tenant) GetCompliance() string {
 	return t.ComplianceLevel
+}
+
+func (t Tenant) GetEscrowKey() string {
+	return t.EscrowPublicKey
 }
 
 // Manager handles connections to tenant-specific databases
@@ -39,7 +44,7 @@ func NewManager(globalDB *sqlx.DB, kms KMSClient) *Manager {
 // GetTenant returns the tenant record from the global DB
 func (m *Manager) GetTenant(ctx context.Context, tenantID string) (interface{}, error) {
 	var tenant Tenant
-	err := m.globalDB.GetContext(ctx, &tenant, "SELECT id, db_connection_string, compliance_level FROM tenants WHERE id = $1", tenantID)
+	err := m.globalDB.GetContext(ctx, &tenant, "SELECT id, db_connection_string, compliance_level, escrow_public_key FROM tenants WHERE id = $1", tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find tenant: %w", err)
 	}

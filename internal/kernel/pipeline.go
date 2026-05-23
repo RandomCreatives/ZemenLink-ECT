@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
+	"log"
 )
 
 type Message struct {
@@ -58,22 +59,34 @@ func EscrowInterceptor(ctx context.Context, msg *Message) error {
 		return nil
 	}
 
-	// For a real escrow, we need the symmetric key in a format we can re-encrypt.
-	// In a true E2EE system, the server NEVER sees the symmetric key.
-	// RETHINK: The client must provide the symmetric key encrypted for the Escrow Public Key.
-	// Or, for this PoC, we assume GlobalEscrowCrypto can handle the "multi-encryption" requirement.
-
 	if msg.EncryptedKey == "" {
-		return nil // Nothing to escrow if no key provided
+		return nil
+	}
+
+	// Determine the escrow crypto service
+	var crypto *EscrowCrypto
+	if tc.EscrowPublicKey != "" {
+		var err error
+		crypto, err = NewEscrowCrypto([]byte(tc.EscrowPublicKey))
+		if err != nil {
+			log.Printf("Warning: failed to load tenant escrow key: %v", err)
+		}
 	}
 
 	escrowKeyEncrypted := "escrow-encrypted-key-placeholder"
-	if GlobalEscrowCrypto != nil {
+	if crypto != nil {
 		var err error
-		// Note: Re-encrypting a ciphertext is not standard.
-		// Usually, the client encrypts K twice: Enc(K, Pub_Recipient) and Enc(K, Pub_Escrow).
-		// We'll simulate the "Escrow Key" being generated/stored here.
-		escrowKeyEncrypted, err = GlobalEscrowCrypto.EncryptForKeyEscrow("simulated-symmetric-key")
+		// Simulate multi-encryption
+		escrowKeyEncrypted, err = crypto.EncryptForKeyEscrow("simulated-symmetric-key")
+		if err != nil {
+			return fmt.Errorf("escrow encryption failed: %w", err)
+		}
+	} else if GlobalEscrowCrypto != nil {
+		var err error
+		// Fallback to global key if set
+		escrowKeyEncrypted, err = GlobalEscrowCrypto.(interface {
+			EncryptForKeyEscrow(string) (string, error)
+		}).EncryptForKeyEscrow("simulated-symmetric-key")
 		if err != nil {
 			return fmt.Errorf("escrow encryption failed: %w", err)
 		}

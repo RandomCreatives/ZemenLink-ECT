@@ -80,6 +80,28 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Public Routes
+	r.Post("/auth/token", func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			TenantID string `json:"tenant_id"`
+			UserID   string `json:"user_id"`
+			Role     string `json:"role"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "Invalid payload", http.StatusBadRequest)
+			return
+		}
+
+		token, err := kernel.GenerateTestToken(jwtSecret, payload.TenantID, payload.UserID, payload.Role)
+		if err != nil {
+			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"token": token})
+	})
+
 	// Protected Routes
 	r.Group(func(r chi.Router) {
 		r.Use(kernel.AuthMiddleware(jwtSecret, tenantManager, moduleRegistry))

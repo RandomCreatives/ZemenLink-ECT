@@ -82,6 +82,11 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				compliance = t.GetCompliance()
 			}
 
+			escrowKey := ""
+			if t, ok := tenantObj.(interface{ GetEscrowKey() string }); ok {
+				escrowKey = t.GetEscrowKey()
+			}
+
 			role, _ := claims["role"].(string)
 
 			tc := &TenantContext{
@@ -89,6 +94,7 @@ func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProv
 				UserID:          userID,
 				DB:              db,
 				ComplianceLevel: compliance,
+				EscrowPublicKey: escrowKey,
 				FeatureFlags:    features.GetFlagsForTenant(tenantID, compliance),
 			}
 

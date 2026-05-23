@@ -11,6 +11,7 @@ type TenantContext struct {
 	DB              *sqlx.DB
 	FeatureFlags    map[string]bool
 	ComplianceLevel string
+	EscrowPublicKey string
 }
 
 type contextKey string
