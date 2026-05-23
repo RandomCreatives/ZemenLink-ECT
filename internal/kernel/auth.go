@@ -25,13 +25,16 @@ type FeatureProvider interface {
 func AuthMiddleware(secret []byte, resolver TenantResolver, features FeatureProvider) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, "Authorization header required", http.StatusUnauthorized)
-				return
+			tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if tokenString == "" {
+				// Fallback to query parameter for WebSocket connections
+				tokenString = r.URL.Query().Get("token")
 			}
 
-			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenString == "" {
+				http.Error(w, "Authorization required", http.StatusUnauthorized)
+				return
+			}
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
