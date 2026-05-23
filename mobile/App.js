@@ -9,7 +9,7 @@ const mockChats = [
 ];
 
 export default function App() {
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState(null); // IN PRODUCTION: Load from AsyncStorage
   const [activeChat, setActiveChat] = useState(null);
   const [inputText, setInputText] = useState('');
   const { messages, isConnected, sendMessage } = useMessaging(token);
@@ -48,7 +48,7 @@ export default function App() {
         >
           {/* Chat Header */}
           <View style={styles.header}>
-            <TouchableOpacity onClick={() => setActiveChat(null)}>
+            <TouchableOpacity onPress={() => setActiveChat(null)}>
               <ArrowLeft color="#2481cc" size={24} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{activeChat.name}</Text>

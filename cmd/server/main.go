@@ -25,7 +25,7 @@ func main() {
 	// 1. Setup Dependencies
 	globalDBConn := os.Getenv("GLOBAL_DB_URL")
 	if globalDBConn == "" {
-		log.Fatalln("GLOBAL_DB_URL environment variable is required")
+		globalDBConn = "host=localhost user=postgres password=password dbname=zemenlink_global sslmode=disable"
 	}
 
 	globalDB, err := sqlx.Connect("postgres", globalDBConn)
@@ -45,7 +45,7 @@ func main() {
 	tenantManager := tenant.NewManager(globalDB, kms)
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 	if len(jwtSecret) == 0 {
-		log.Fatalln("JWT_SECRET environment variable is required")
+		jwtSecret = []byte("default-secret-change-me")
 	}
 
 	// Load Modules

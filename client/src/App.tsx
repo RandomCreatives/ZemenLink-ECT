@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [tenantID, setTenantID] = useState<string | null>(null);
   const [userID, setUserID] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('zemenlink_token'));
   const [isConnected, setIsConnected] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeChatID, setActiveChatID] = useState('global-chat');
@@ -41,7 +41,17 @@ const App: React.FC = () => {
     setTenantID(tenant);
     setUserID(user);
     setToken(authToken);
+    localStorage.setItem('zemenlink_token', authToken);
+    localStorage.setItem('zemenlink_tenant', tenant);
+    localStorage.setItem('zemenlink_user', user);
   };
+
+  useEffect(() => {
+    const savedTenant = localStorage.getItem('zemenlink_tenant');
+    const savedUser = localStorage.getItem('zemenlink_user');
+    if (savedTenant) setTenantID(savedTenant);
+    if (savedUser) setUserID(savedUser);
+  }, []);
 
   useEffect(() => {
     if (!token) return;

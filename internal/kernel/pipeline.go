@@ -2,8 +2,10 @@ package kernel
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
+	"strings"
 )
 
 type Message struct {
@@ -49,15 +51,11 @@ var GlobalEscrowCrypto interface {
 // Interceptor implementations (Stubs for now)
 
 func EncryptionInterceptor(ctx context.Context, msg *Message) error {
-	// SIMULATED E2EE (XOR for PoC purposes)
-	// IN PRODUCTION: Implementation of the Signal Protocol (Double Ratchet)
-	if msg.Content != "" {
-		key := "zemenlink-poc-key"
-		encrypted := make([]byte, len(msg.Content))
-		for i := 0; i < len(msg.Content); i++ {
-			encrypted[i] = msg.Content[i] ^ key[i%len(key)]
-		}
-		msg.Content = fmt.Sprintf("E2EE:%x", encrypted)
+	// SIMULATED E2EE
+	// IN PRODUCTION: Full implementation of the Signal Protocol (Double Ratchet)
+	// For this foundation, we simulate the "encrypted payload" format using Base64.
+	if msg.Content != "" && !strings.HasPrefix(msg.Content, "E2EE:") {
+		msg.Content = fmt.Sprintf("E2EE:v1:%s", base64.StdEncoding.EncodeToString([]byte(msg.Content)))
 	}
 	return nil
 }
