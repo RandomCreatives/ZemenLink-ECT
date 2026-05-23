@@ -49,7 +49,16 @@ var GlobalEscrowCrypto interface {
 // Interceptor implementations (Stubs for now)
 
 func EncryptionInterceptor(ctx context.Context, msg *Message) error {
-	// TODO: Signal Protocol implementation
+	// SIMULATED E2EE (XOR for PoC purposes)
+	// IN PRODUCTION: Implementation of the Signal Protocol (Double Ratchet)
+	if msg.Content != "" {
+		key := "zemenlink-poc-key"
+		encrypted := make([]byte, len(msg.Content))
+		for i := 0; i < len(msg.Content); i++ {
+			encrypted[i] = msg.Content[i] ^ key[i%len(key)]
+		}
+		msg.Content = fmt.Sprintf("E2EE:%x", encrypted)
+	}
 	return nil
 }
 

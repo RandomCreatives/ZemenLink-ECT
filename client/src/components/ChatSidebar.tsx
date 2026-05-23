@@ -1,13 +1,26 @@
 import React from 'react';
 import { Menu, Search, ShieldCheck } from 'lucide-react';
+import ChatList from './ChatList';
 
 interface ChatSidebarProps {
   tenantID: string;
+  isOpen: boolean;
+  onSelectChat: (id: string) => void;
+  activeChatID?: string;
 }
 
-const ChatSidebar: React.FC<ChatSidebarProps> = ({ tenantID }) => {
+const mockChats = [
+  { id: 'global-chat', name: 'Enterprise Kernel Chat', lastMessage: 'Real-time sync enabled.', time: 'Just now', initials: 'ZL', unreadCount: 2 },
+  { id: 'compliance-team', name: 'Compliance Team', lastMessage: 'Escrow request pending approval.', time: '12:45', initials: 'CT' },
+  { id: 'it-support', name: 'IT Support (OIDC)', lastMessage: 'Auth logs look normal.', time: 'Yesterday', initials: 'IT' },
+];
+
+const ChatSidebar: React.FC<ChatSidebarProps> = ({ tenantID, isOpen, onSelectChat, activeChatID }) => {
   return (
-    <div className="w-80 bg-white border-r flex flex-col hidden md:flex">
+    <div className={`
+      fixed inset-0 z-40 md:relative md:flex w-full md:w-80 bg-white border-r flex-col transition-transform duration-300 ease-in-out
+      ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+    `}>
       <div className="p-4 border-b flex items-center gap-4 bg-telegram-blue text-white">
         <Menu className="cursor-pointer" />
         <span className="font-bold text-lg">ZemenLink</span>
@@ -24,18 +37,11 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ tenantID }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 flex items-center gap-3 hover:bg-gray-50 cursor-pointer">
-          <div className="w-12 h-12 rounded-full bg-telegram-blue flex items-center justify-center text-white font-bold">ZL</div>
-          <div className="flex-1 overflow-hidden">
-            <div className="flex justify-between text-sm">
-              <span className="font-semibold truncate">Enterprise Kernel</span>
-              <span className="text-gray-500">Just now</span>
-            </div>
-            <p className="text-sm text-gray-500 truncate">Real-time sync enabled.</p>
-          </div>
-        </div>
-      </div>
+      <ChatList
+        chats={mockChats}
+        onSelect={onSelectChat}
+        activeID={activeChatID}
+      />
 
       <div className="p-4 border-t bg-gray-50 flex items-center gap-2 text-xs text-gray-500">
         <ShieldCheck className="w-4 h-4 text-green-500" />

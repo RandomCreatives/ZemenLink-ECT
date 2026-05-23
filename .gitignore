@@ -1,0 +1,7 @@
+node_modules/
+dist/
+backend.log
+frontend.log
+*.exe
+zemenlink
+.expo/

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MoreVertical } from 'lucide-react';
+import { Search, MoreVertical, Menu as MenuIcon } from 'lucide-react';
 import ChatSidebar from './components/ChatSidebar';
 import MessageBubble from './components/MessageBubble';
 import InputBar from './components/InputBar';
@@ -23,6 +23,8 @@ const App: React.FC = () => {
   const [userID, setUserID] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeChatID, setActiveChatID] = useState('global-chat');
 
   const socketRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -104,20 +106,34 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-100 overflow-hidden relative">
       {!token && <Login onLogin={handleLogin} />}
 
-      <ChatSidebar tenantID={tenantID || ''} />
+      <ChatSidebar
+        tenantID={tenantID || ''}
+        isOpen={isSidebarOpen}
+        activeChatID={activeChatID}
+        onSelectChat={(id) => {
+          setActiveChatID(id);
+          setIsSidebarOpen(false);
+        }}
+      />
 
       {/* Main Chat Window */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#e7ebf0]">
+      <div className={`flex-1 flex flex-col min-w-0 bg-[#e7ebf0] transition-opacity duration-200 ${isSidebarOpen ? 'opacity-50 md:opacity-100 pointer-events-none md:pointer-events-auto' : 'opacity-100'}`}>
         {/* Chat Header */}
-        <div className="h-16 bg-white border-b px-4 flex items-center justify-between z-10 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-telegram-blue flex items-center justify-center text-white font-bold">ZL</div>
-            <div>
-              <h2 className="font-semibold text-gray-900 leading-tight">Enterprise Kernel Chat</h2>
-              <span className={`text-xs ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
+        <div className="h-16 bg-white border-b px-2 md:px-4 flex items-center justify-between z-10 shadow-sm">
+          <div className="flex items-center gap-2 md:gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 hover:bg-gray-100 rounded-full md:hidden"
+            >
+              <MenuIcon className="w-6 h-6 text-gray-500" />
+            </button>
+            <div className="w-10 h-10 rounded-full bg-telegram-blue flex items-center justify-center text-white font-bold flex-shrink-0">ZL</div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-gray-900 leading-tight truncate">Enterprise Kernel Chat</h2>
+              <span className={`text-[10px] md:text-xs ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
                 {isConnected ? 'connected' : 'connecting...'}
               </span>
             </div>
